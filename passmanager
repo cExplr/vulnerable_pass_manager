@@ -1,0 +1,170 @@
+#! /usr/bin/env python3
+import sqlite3
+import hashlib
+import sys
+import getpass
+import time
+
+# REMEMBER TO CHOWN TO ROOT AND GROUP TO ROOT OF THE FILE IN THIS DIRECTORY
+# AND ALSO THE PROGRAM FILE YOU ARE EDITING RIGHT NOW
+conn = sqlite3.connect("/CHANGE/TO/PATH")
+
+try:
+    conn.execute("""
+    CREATE TABLE CRED(
+    APP TEXT NOT NULL ,
+    USERNAME TEXT NOT NULL,
+    PASSWORD TEXT NOT NULL
+    );
+    """)
+    conn.commit()
+    print("[ + ] Table Created ...")
+    
+except:
+    pass
+
+print("Database connected!")
+
+
+def sanitize(target):
+    illegalChars = [ '>' , '=' , "'" ,  "\"" , "--", "<" , " " ]
+    for i in illegalChars:
+        target = target.replace(i,"")
+#    print("Sanitization completed")
+    return target
+
+def listAllStoredApplications():
+    print("NOWW Listing all stored applications ...")
+    command = "SELECT APP FROM CRED;"
+    cur = conn.execute(command)
+    for row in cur:
+        print(" --<>  " + row[0] )
+    print()
+def addNewCredentials():
+    maxTries = 3
+    listAllStoredApplications()
+    inputPassword("Enter password to Add New Credentials : ")
+    appname = input("Enter the Application Name :  ")
+    username = input("Enter the username : ")
+    password = getpass.getpass("UPDATE Password : ")
+    confirmpassword = getpass.getpass("Confirm Password : ")
+    while not  confirmpassword == password :
+        print("Password does not match!")
+        maxTries -= 1
+        if maxTries < 0:
+            sys.exit()
+        password = getpass.getpass("UPDATE Password : ")
+        confirmpassword = getpass.getpass("Confirm Password : ")
+
+    appname_sanitized = sanitize(appname)
+    username_sanitized = sanitize(username)
+    password_sanitized = sanitize(password)
+    command = "INSERT INTO CRED(APP,USERNAME,PASSWORD) VALUES ('"+ appname_sanitized +"','" + username_sanitized + "','"+ password_sanitized +"')" 
+    cur = conn.execute(command)
+    print("New credentials inserted for " + appname_sanitized)
+    conn.commit()
+
+def updateDatabase():
+    maxTries = 3
+    listAllStoredApplications()
+    inputPassword("Enter password to update database")
+    appname = input("Which application to update? : ")
+    username = input("UPDATE Username : ")
+    password = getpass.getpass("UPDATE Password : ")
+    confirmpassword = getpass.getpass("Confirm Password : ")
+    while not  confirmpassword == password :
+        print("Password does not match!")
+        maxTries -= 1
+        if maxTries < 0:
+            sys.exit()
+        password = getpass.getpass("UPDATE Password : ")
+        confirmpassword = getpass.getpass("Confirm Password : ")
+    appname_sanitized = sanitize(appname)
+    username_sanitized = sanitize(username)
+    password_sanitized = sanitize(password)
+
+    command = "UPDATE CRED SET APP='" + appname_sanitized + "',USERNAME='" + username_sanitized + "',PASSWORD='" + password_sanitized + "' WHERE APP='" + appname_sanitized + "';" 
+    cur = conn.execute(command)
+    print(appname_sanitized + " : updated ! ")    
+    conn.commit()
+
+def viewSpecificCredentials():
+    listAllStoredApplications()
+    appname = input("Which application credentials to view? : ")
+    inputPassword("Enter password to view : ")
+    
+    appname_sanitized = sanitize(appname)
+    command = "SELECT * FROM CRED WHERE APP='"+appname_sanitized+"';"
+    cur = conn.execute(command)
+    for row in cur:
+        print("For " + appname_sanitized + "\nUSERNAME : " + row[1] + "\nPASSWORD : " + row[2])
+
+def deleteCredentials():
+    listAllStoredApplications()
+    appname = input("Choose the application to be deleted : ")
+    appname_sanitized = sanitize(appname)
+    inputPassword("Enter Password to delete "+appname_sanitized+": ")
+    command = "DELETE FROM CRED WHERE APP='" + appname_sanitized + "';"
+    conn.execute(command)
+    sys.stdout.write("Deleting ... \r")
+    conn.commit()
+    sys.stdout.write("Deleted " + appname_sanitized + " from database ... \n\n")
+
+def inputPassword(message):
+    maxTries = 3
+    passHash = "ecd8621ea2607bc9f30f578878c01fb7955157854bb7bc2ce8a7e9a34d406341"
+    m = hashlib.sha256(getpass.getpass(message).encode('utf-8'))
+    
+    if m.hexdigest() != passHash:
+        print("Incorrect Password ...")
+        print("Exiting program...")
+        sys.exit()
+
+def main(): 
+    SLEEP_TIME = 1
+    inputPassword("Login Password : ")
+    banner()
+    while 1==1:
+        menu()
+        choice  = input("Enter choice : ")
+        if choice == "0":
+            print("Listing all applications")
+            listAllStoredApplications()
+            time.sleep(SLEEP_TIME)
+        elif choice == "1":
+            addNewCredentials()
+            time.sleep(SLEEP_TIME)
+        elif choice == "2":
+            updateDatabase()
+            time.sleep(SLEEP_TIME)
+        elif choice == "3":
+            deleteCredentials()
+            time.sleep(SLEEP_TIME)
+        elif choice == "4":
+            viewSpecificCredentials()
+            time.sleep(SLEEP_TIME)
+        elif choice =="5":
+            conn.close()
+            time.sleep(SLEEP_TIME)
+            print("Database disconnected ...")
+            print("Exiting program ...")
+            sys.exit()
+def banner():
+    separator = "============================================================"
+    print(separator)
+    print("WELCOME TO CREDENTIAL STORER ... ")
+    print("THIS IS TO LEARN TO USE SQLITE3 WHILE \nLEARNING MORE ABOUT SQLInjection ...")
+    print(separator)
+    
+def menu():
+    separator = "============================================================"
+    print(separator)
+    print("0. List All Stored Application")
+    print("1. Add New Credentials")
+    print("2. Update Credentials")
+    print("3. Delete Credentials")
+    print("4. View Specific Credentials")
+    print("5. EXIT")
+    print(separator)
+
+main()
